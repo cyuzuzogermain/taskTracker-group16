@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'task_list_screen.dart';
 
 import '../utils/app_routes.dart';
 import 'dashboard_screen.dart';
@@ -54,7 +55,7 @@ class _MainShellState extends State<MainShell> {
         onTaskTap: (task) => _openTaskDetails(),
         onCreateTask: _openCreateTask,
       ),
-      const PlaceholderScreen(title: 'Tasks'),
+      const TaskListScreen(),
       const PlaceholderScreen(title: 'Team'),
       const PlaceholderScreen(title: 'Profile'),
     ];
