@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'screens/dashboard_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const TaskTrackerApp());
@@ -13,10 +14,7 @@ class TaskTrackerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Project & SLA Task Tracker',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light(),
       home: const DashboardScreen(),
     );
   }
