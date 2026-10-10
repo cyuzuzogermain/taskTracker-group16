@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'dashboard_dummy_data.dart';
+import '../models/task.dart';
+import '../models/team_member.dart';
+import '../models/sla_status.dart';
+import '../services/storage_service.dart';
+import '../services/sla_service.dart';
+import '../theme/sla_colors.dart';
 
 /// Callback invoked when an SLA summary card is tapped.
 /// The Task List screen will use this to filter tasks by SLA status.
@@ -9,16 +14,12 @@ typedef OnSlaCardTap = void Function(String status);
 /// Callback invoked when a task in the recent list is tapped.
 typedef OnTaskTap = void Function(Task task);
 
-/// Callback invoked when the "New Task" FAB is pressed.
-typedef OnCreateTask = void Function();
-
 /// Dashboard screen showing project overview, SLA summary, and recent tasks.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     super.key,
     this.onSlaCardTap = _defaultSlaCardTap,
     this.onTaskTap = _defaultTaskTap,
-    this.onCreateTask = _defaultCreateTask,
   });
 
   /// Called when an SLA card is tapped. Receives the SLA status label.
@@ -26,9 +27,6 @@ class DashboardScreen extends StatefulWidget {
 
   /// Called when a task tile is tapped.
   final OnTaskTap onTaskTap;
-
-  /// Called when the "New Task" FAB is pressed.
-  final OnCreateTask onCreateTask;
 
   static void _defaultSlaCardTap(String status) {
     // Placeholder: show a SnackBar. The real screen will navigate/filter.
@@ -39,24 +37,30 @@ class DashboardScreen extends StatefulWidget {
     debugPrint('Task tapped: ${task.title}');
   }
 
-  static void _defaultCreateTask() {
-    debugPrint('New Task FAB pressed');
-  }
-
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
   /// The list of tasks currently shown on the dashboard.
-  /// We start with dummy data; replace with the storage service when merged.
   List<Task> _tasks = [];
+  List<TeamMember> _members = [];
 
   @override
   void initState() {
     super.initState();
-    // Seed with dummy tasks so the UI has something to display.
-    _tasks = createDummyTasks();
+    _loadTasks();
+  }
+
+  Future<void> _loadTasks() async {
+    final storage = StorageService();
+    final tasks = await storage.loadTasks();
+    final members = await storage.loadTeamMembers();
+    if (!mounted) return;
+    setState(() {
+      _tasks = tasks;
+      _members = members;
+    });
   }
 
   // ------------------------------------------------------------------
@@ -69,7 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Number of tasks whose status is "Done".
   int _countCompleted() {
-    return _tasks.where((t) => t.status == 'Done').length;
+    return _tasks.where((t) => t.status == TaskStatus.done).length;
   }
 
   /// Percentage of tasks that are completed (0–100).
@@ -80,7 +84,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Count of tasks in a given SLA status.
   int _countByStatus(SlaStatus status) {
-    return _tasks.where((t) => computeSla(t) == status).length;
+    return _tasks.where((t) => SlaService.computeSla(t) == status).length;
   }
 
   /// The 5 most recently created tasks, newest first.
@@ -90,33 +94,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return sorted.take(5).toList();
   }
 
-  /// Human-readable label for an SLA status.
-  String _slaLabel(SlaStatus status) {
-    switch (status) {
-      case SlaStatus.onTrack:
-        return 'On Track';
-      case SlaStatus.atRisk:
-        return 'At Risk';
-      case SlaStatus.overdue:
-        return 'Overdue';
-      case SlaStatus.completed:
-        return 'Completed';
-    }
-  }
-
-  /// Material colour for an SLA status.
-  /// Kept in one place so the team can align with the shared theme later.
-  Color _slaColor(SlaStatus status) {
-    switch (status) {
-      case SlaStatus.onTrack:
-        return Colors.green;
-      case SlaStatus.atRisk:
-        return Colors.orange;
-      case SlaStatus.overdue:
-        return Colors.red;
-      case SlaStatus.completed:
-        return Colors.blue;
-    }
+  /// Assignee name lookup, or "Unassigned" when no assignee id is set.
+  String _assigneeNameFor(Task task) {
+    if (task.assigneeId.isEmpty) return 'Unassigned';
+    final member = _members.where((m) => m.id == task.assigneeId).firstOrNull;
+    return member?.name ?? 'Unassigned';
   }
 
   /// Icon for an SLA status card.
@@ -132,14 +114,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return Icons.check_circle_outline;
     }
   }
-
-  /// Update the task list and trigger a rebuild.
-  /// setState() tells Flutter that the widget's state has changed so it
-  /// re-renders the UI. We use it here so the computed counts and lists
-  /// stay in sync with the underlying data.
-  ///
-  /// Note: This method is kept for future use when we add task creation/
-  /// deletion. For now it's unused but demonstrates the setState pattern.
 
   // ------------------------------------------------------------------
   // UI building methods – each responsible for one section.
@@ -243,17 +217,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // count, icon and colour.
             for (final status in SlaStatus.values)
               _SlaCard(
-                label: _slaLabel(status),
+                label: status.label,
                 count: _countByStatus(status),
-                color: _slaColor(status),
+                color: SlaColors.of(status).text,
                 icon: _slaIcon(status),
                 onTap: () {
                   // Notify the parent via the callback.
-                  widget.onSlaCardTap(_slaLabel(status));
+                  widget.onSlaCardTap(status.label);
                   // Also show a SnackBar so the user sees something.
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Tapped: ${_slaLabel(status)}'),
+                      content: Text('Tapped: $status.label'),
                       duration: const Duration(seconds: 1),
                     ),
                   );
@@ -291,10 +265,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final task = recent[index];
-              final sla = computeSla(task);
+              final sla = SlaService.computeSla(task);
               return _TaskTile(
                 task: task,
-                slaColor: _slaColor(sla),
+                slaColor: SlaColors.of(sla).text,
+                assigneeName: _assigneeNameFor(task),
                 onTap: () {
                   widget.onTaskTap(task);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -369,19 +344,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          widget.onCreateTask();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('New Task – placeholder. Navigate to create screen.'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('New Task'),
-      ),
     );
   }
 }
@@ -448,11 +410,13 @@ class _SlaCard extends StatelessWidget {
 class _TaskTile extends StatelessWidget {
   final Task task;
   final Color slaColor;
+  final String assigneeName;
   final VoidCallback onTap;
 
   const _TaskTile({
     required this.task,
     required this.slaColor,
+    required this.assigneeName,
     required this.onTap,
   });
 
@@ -482,7 +446,7 @@ class _TaskTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Assignee: ${task.assignee}',
+                      'Assignee: $assigneeName',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
@@ -522,8 +486,7 @@ class _TaskTile extends StatelessWidget {
   }
 
   String _slaStatusLabelForTask() {
-    // Reuse the helper from the state class.
-    final sla = computeSla(task);
+    final sla = SlaService.computeSla(task);
     switch (sla) {
       case SlaStatus.onTrack:
         return 'On Track';
