@@ -239,6 +239,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  /// Tasks that need attention: Overdue first, then At Risk, nearest deadline
+  /// first within each group. Capped at 5. Uses [SlaService.computeSla] and
+  /// [SlaService.deadlineOf], never re-implements the rules.
+  List<Task> get _needsAttention {
+    final overdue = <Task>[];
+    final atRisk = <Task>[];
+    for (final task in _tasks) {
+      final sla = SlaService.computeSla(task);
+      if (sla == SlaStatus.overdue) {
+        overdue.add(task);
+      } else if (sla == SlaStatus.atRisk) {
+        atRisk.add(task);
+      }
+    }
+    overdue.sort((a, b) => SlaService.deadlineOf(a).compareTo(SlaService.deadlineOf(b)));
+    atRisk.sort((a, b) => SlaService.deadlineOf(a).compareTo(SlaService.deadlineOf(b)));
+    final result = [...overdue, ...atRisk];
+    return result.take(5).toList();
+  }
+
+  Widget _buildNeedsAttentionSection() {
+    final attention = _needsAttention;
+
+    if (attention.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Text(
+          'Nothing needs attention',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            'Needs Attention',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+        ),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: attention.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final task = attention[index];
+            final sla = SlaService.computeSla(task);
+            final assigneeName = _assigneeNameFor(task);
+            return _AttentionTaskTile(
+              task: task,
+              slaColor: SlaColors.of(sla).text,
+              assigneeName: assigneeName,
+              onTap: () => widget.onTaskTap(task),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildRecentTasksSection() {
     final recent = _recentTasks;
 
@@ -338,6 +407,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildProgressSection(),
             const SizedBox(height: 8),
             _buildSlaGrid(),
+            const SizedBox(height: 8),
+            _buildNeedsAttentionSection(),
             const SizedBox(height: 8),
             _buildRecentTasksSection(),
             const SizedBox(height: 24),
@@ -506,5 +577,84 @@ class _TaskTile extends StatelessWidget {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+}
+
+/// A task tile for the Needs Attention section.
+class _AttentionTaskTile extends StatelessWidget {
+  final Task task;
+  final Color slaColor;
+  final String assigneeName;
+  final VoidCallback onTap;
+
+  const _AttentionTaskTile({
+    required this.task,
+    required this.slaColor,
+    required this.assigneeName,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      task.title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Assignee: $assigneeName',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                    Text(
+                      SlaService.deadlineLine(task),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: slaColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: slaColor.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  SlaService.computeSla(task).label,
+                  style: TextStyle(
+                    color: slaColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
