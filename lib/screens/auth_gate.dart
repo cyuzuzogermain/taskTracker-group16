@@ -67,6 +67,16 @@ class _AuthGateState extends State<AuthGate> {
     });
   }
 
+  /// Forgets the saved member and switches back to the Sign In screen.
+  Future<void> _signOut() async {
+    await _session.clear();
+
+    if (!mounted) return;
+    setState(() {
+      _currentUser = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isChecking) {
@@ -80,6 +90,6 @@ class _AuthGateState extends State<AuthGate> {
       return SignInScreen(onSignedIn: _signIn);
     }
 
-    return MainShell(currentUser: currentUser);
+    return MainShell(currentUser: currentUser, onSignOut: _signOut);
   }
 }

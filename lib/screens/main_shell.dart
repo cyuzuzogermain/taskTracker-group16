@@ -6,7 +6,7 @@ import '../services/storage_service.dart';
 
 import 'dashboard_screen.dart';
 import 'task_list_screen.dart';
-import 'placeholder_screen.dart';
+import 'profile_screen.dart';
 import 'team_members_screen.dart';
 import 'task_details_screen.dart';
 import '../utils/app_routes.dart';
@@ -14,10 +14,17 @@ import '../utils/app_routes.dart';
 /// The frame around the four main screens: it shows the bottom navigation
 /// bar and switches between the Home, Tasks, Team and Profile tabs.
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, required this.currentUser});
+  const MainShell({
+    super.key,
+    required this.currentUser,
+    required this.onSignOut,
+  });
 
   /// The team member who is signed in.
   final TeamMember currentUser;
+
+  /// Called when the user signs out from the Profile tab.
+  final VoidCallback onSignOut;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -133,7 +140,11 @@ class _MainShellState extends State<MainShell> {
         onTaskTap: (task) => _openTaskDetails(task),
       ),
       const TeamMembersScreen(),
-      const PlaceholderScreen(title: 'Profile'),
+      ProfileScreen(
+        key: ValueKey('profile-$_refreshToken'),
+        currentUser: widget.currentUser,
+        onSignOut: widget.onSignOut,
+      ),
     ];
 
     return Scaffold(
