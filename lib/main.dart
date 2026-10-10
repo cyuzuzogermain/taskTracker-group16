@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'screens/dashboard_screen.dart';
+import 'screens/main_shell.dart';
+import 'screens/placeholder_screen.dart';
 import 'theme/app_theme.dart';
+import 'utils/app_routes.dart';
 
 void main() {
   runApp(const TaskTrackerApp());
@@ -15,7 +17,12 @@ class TaskTrackerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Project & SLA Task Tracker',
       theme: AppTheme.light(),
-      home: const DashboardScreen(),
+      initialRoute: AppRoutes.home,
+      routes: {
+        AppRoutes.home: (context) => const MainShell(),
+        AppRoutes.createTask: (context) =>
+            const PlaceholderScreen(title: 'New Task'),
+      },
     );
   }
 }
