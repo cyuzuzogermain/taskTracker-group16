@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'task_list_screen.dart';
 
+
 import '../utils/app_routes.dart';
 import 'dashboard_screen.dart';
 import 'placeholder_screen.dart';
+import 'team_members_screen.dart';
 
 /// The frame around the four main screens: it shows the bottom navigation
 /// bar and switches between the Home, Tasks, Team and Profile tabs.
@@ -56,7 +58,7 @@ class _MainShellState extends State<MainShell> {
         onCreateTask: _openCreateTask,
       ),
       const TaskListScreen(),
-      const PlaceholderScreen(title: 'Team'),
+      const TeamMembersScreen(),
       const PlaceholderScreen(title: 'Profile'),
     ];
 
