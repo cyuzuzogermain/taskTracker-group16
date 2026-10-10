@@ -55,7 +55,7 @@ class _MainShellState extends State<MainShell> {
         onTaskTap: (task) => _openTaskDetails(),
         onCreateTask: _openCreateTask,
       ),
-      const TaskListScreen(),
+      TaskListScreen(onTaskTap: (task) => _openTaskDetails()),
       const PlaceholderScreen(title: 'Team'),
       const PlaceholderScreen(title: 'Profile'),
     ];
