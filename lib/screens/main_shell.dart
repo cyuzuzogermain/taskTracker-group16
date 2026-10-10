@@ -14,7 +14,10 @@ import '../utils/app_routes.dart';
 /// The frame around the four main screens: it shows the bottom navigation
 /// bar and switches between the Home, Tasks, Team and Profile tabs.
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  const MainShell({super.key, required this.currentUser});
+
+  /// The team member who is signed in.
+  final TeamMember currentUser;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -126,7 +129,7 @@ class _MainShellState extends State<MainShell> {
       ),
       TaskListScreen(
         key: ValueKey('tasks-$_refreshToken'),
-        currentUserId: null, // TODO: pass the current user id when auth is ready.
+        currentUserId: widget.currentUser.id,
         onTaskTap: (task) => _openTaskDetails(task),
       ),
       const TeamMembersScreen(),
