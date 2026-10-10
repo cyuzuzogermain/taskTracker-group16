@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-import 'task_list_screen.dart';
 
+import '../models/task.dart';
+import '../models/team_member.dart';
+import '../services/storage_service.dart';
 
-import '../utils/app_routes.dart';
 import 'dashboard_screen.dart';
+import 'task_list_screen.dart';
 import 'placeholder_screen.dart';
 import 'team_members_screen.dart';
+import 'task_details_screen.dart';
+import '../utils/app_routes.dart';
 
 /// The frame around the four main screens: it shows the bottom navigation
 /// bar and switches between the Home, Tasks, Team and Profile tabs.
@@ -24,6 +28,13 @@ class _MainShellState extends State<MainShell> {
   /// The tab currently shown.
   int _selectedIndex = _homeTab;
 
+  /// Increments each time a modal screen returns. Tabs key off this value
+  /// so they reload their data after Task Details or Create Task closes.
+  int _refreshToken = 0;
+
+  List<Task> _currentTasks = [];
+  List<TeamMember> _currentMembers = [];
+
   /// Switches tab. setState() tells Flutter the selected tab changed, so
   /// it rebuilds the body and highlights the new tab in the bar.
   void _selectTab(int index) {
@@ -32,32 +43,92 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
-  /// Opens the Create Task screen on top of the tabs.
-  void _openCreateTask() {
-    Navigator.pushNamed(context, AppRoutes.createTask);
+  /// Increments the refresh token so tabs re-fetch from storage.
+  void _refresh() {
+    setState(() => _refreshToken++);
   }
 
-  /// Opens Task Details on top of the tabs.
-  void _openTaskDetails() {
-    // TODO: pass the tapped task to the real Task Details screen.
-    Navigator.push(
+  /// Opens the Create Task screen on top of the tabs.
+  void _openCreateTask() async {
+    await Navigator.pushNamed(context, AppRoutes.createTask);
+    // After returning, both the Dashboard and Task List reload data.
+    _refresh();
+  }
+
+  /// Opens Task Details for the given task.
+  ///
+  /// If [TaskDetailsScreen] exists it is shown directly; otherwise the
+  /// placeholder is used and the caller is expected to wire it up later.
+  Future<void> _openTaskDetails(Task task) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const PlaceholderScreen(title: 'Task Details'),
+        builder: (context) => TaskDetailsScreen(
+          task: task,
+          members: _currentMembers,
+          onSave: (updatedTask) async {
+            // Update the task in our local list.
+            final idx = _currentTasks.indexWhere((t) => t.id == updatedTask.id);
+            if (idx >= 0) {
+              _currentTasks = List<Task>.from(_currentTasks)..[idx] = updatedTask;
+            }
+            await StorageService().saveTasks(_currentTasks);
+            _refresh();
+          },
+          onDelete: (id) async {
+            final updated = _currentTasks.where((t) => t.id != id).toList();
+            _currentTasks = updated;
+            await StorageService().saveTasks(updated);
+            _refresh();
+          },
+          onEdit: (task) {
+            // TODO: navigate to the Create/Edit task route if it exists.
+            // <missing-route> Create/Edit task route not wired yet; placeholder.
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Edit task: ${task.title}'),
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          },
+        ),
       ),
     );
+    _refresh();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final storage = StorageService();
+    final tasks = await storage.loadTasks();
+    final members = await storage.loadTeamMembers();
+    if (!mounted) return;
+    setState(() {
+      _currentTasks = tasks;
+      _currentMembers = members;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     // The screens for each tab, in the same order as the destinations below.
+    // Keyed by _refreshToken so the screens rebuild when data changes.
     final screens = [
       DashboardScreen(
+        key: ValueKey('dashboard-$_refreshToken'),
         onSlaCardTap: (status) => _selectTab(_tasksTab),
-        onTaskTap: (task) => _openTaskDetails(),
-        onCreateTask: _openCreateTask,
+        onTaskTap: (task) => _openTaskDetails(task),
       ),
-      const TaskListScreen(),
+      TaskListScreen(
+        key: ValueKey('tasks-$_refreshToken'),
+        currentUserId: null, // TODO: pass the current user id when auth is ready.
+        onTaskTap: (task) => _openTaskDetails(task),
+      ),
       const TeamMembersScreen(),
       const PlaceholderScreen(title: 'Profile'),
     ];

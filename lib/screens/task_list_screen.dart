@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/sla_status.dart';
 import '../models/task.dart';
 import '../models/team_member.dart';
+import '../services/storage_service.dart';
 import '../services/sla_service.dart';
 
 /// A screen that lists tasks with search, SLA filter chips, and urgency sorting.
@@ -48,140 +49,20 @@ class _TaskListScreenState extends State<TaskListScreen> {
   @override
   void initState() {
     super.initState();
-    // Load sample data once. Replace [_loadData] with the storage service
-    // when it is merged — every screen that needs data should call it from
-    // one place so the change is localised.
-    final data = _loadData();
+    _loadTasks();
+  }
+
+  Future<void> _loadTasks() async {
+    final storage = StorageService();
+    final tasks = await storage.loadTasks();
+    final members = await storage.loadTeamMembers();
+    if (!mounted) return;
     setState(() {
-      _tasks = data.tasks;
-      _members = data.members;
+      _tasks = tasks;
+      _members = members;
       // Apply the initial filter the constructor may have supplied.
       _filter = widget.initialFilter;
     });
-  }
-
-  // ------------------------------------------------------------------
-  // Data loading — the only place to change when storage is ready.
-  // ------------------------------------------------------------------
-
-  /// Temporary in-memory data. Swap the body for [StorageService] reads.
-  ///
-  /// Returns a small set of tasks that exercise all four SLA statuses and
-  /// a handful of team members.
-  _LoadDataResult _loadData() {
-    // <missing-service> TEMPORARY, swap for StorageService.
-    final now = DateTime(2024, 6, 10, 10, 0, 0);
-
-    final members = [
-      const TeamMember(id: 'm1', name: 'Alex Chen', role: 'Developer'),
-      const TeamMember(id: 'm2', name: 'Naomi Kumar', role: 'Designer'),
-      const TeamMember(id: 'm3', name: 'Sam Rivera', role: 'Product Owner'),
-      const TeamMember(id: 'm4', name: 'Jordan Lee', role: 'QA'),
-    ];
-
-    // Task whose deadline has passed and is not done → Overdue.
-    final overdueTask = Task(
-      id: 't1',
-      title: 'Fix login crash on Android',
-      description: 'Reproduces on API 33',
-      assigneeId: 'm1',
-      dueDate: DateTime(2024, 6, 8), // 2 days ago
-      status: TaskStatus.inProgress,
-      createdAt: now.subtract(const Duration(days: 5)),
-      updatedAt: now.subtract(const Duration(hours: 2)),
-    );
-
-    // Due today, not done → At Risk.
-    final atRiskToday = Task(
-      id: 't2',
-      title: 'Review pull request #42',
-      assigneeId: 'm2',
-      dueDate: DateTime(2024, 6, 10), // today
-      status: TaskStatus.todo,
-      createdAt: now.subtract(const Duration(days: 2)),
-      updatedAt: now,
-    );
-
-    // Due tomorrow, not done → At Risk (within 48h).
-    final atRiskTomorrow = Task(
-      id: 't3',
-      title: 'Update onboarding screenshots',
-      assigneeId: 'm2',
-      dueDate: DateTime(2024, 6, 11), // tomorrow
-      status: TaskStatus.todo,
-      createdAt: now.subtract(const Duration(days: 1)),
-      updatedAt: now,
-    );
-
-    // Due in 3 days, not done → On Track.
-    final onTrack = Task(
-      id: 't4',
-      title: 'Write unit tests for SLA service',
-      assigneeId: 'm1',
-      dueDate: DateTime(2024, 6, 13), // in 3 days
-      status: TaskStatus.todo,
-      createdAt: now.subtract(const Duration(days: 1)),
-      updatedAt: now,
-    );
-
-    // Done task → Completed (even though it is past due).
-    final completed = Task(
-      id: 't5',
-      title: 'Set up CI pipeline',
-      description: 'GitHub Actions',
-      assigneeId: 'm3',
-      dueDate: DateTime(2024, 6, 5), // past due, but done
-      status: TaskStatus.done,
-      createdAt: now.subtract(const Duration(days: 7)),
-      updatedAt: now.subtract(const Duration(days: 3)),
-    );
-
-    // Another completed task.
-    final completed2 = Task(
-      id: 't6',
-      title: 'Draft README for v1.0',
-      assigneeId: 'm4',
-      dueDate: DateTime(2024, 6, 9),
-      status: TaskStatus.done,
-      createdAt: now.subtract(const Duration(days: 4)),
-      updatedAt: now.subtract(const Duration(days: 2)),
-    );
-
-    // On Track with a far-future deadline.
-    final onTrackFar = Task(
-      id: 't7',
-      title: 'Research analytics SDK',
-      assigneeId: 'm3',
-      dueDate: DateTime(2024, 6, 20), // 10 days out
-      status: TaskStatus.todo,
-      createdAt: now.subtract(const Duration(days: 1)),
-      updatedAt: now,
-    );
-
-    // Unassigned task, due today → At Risk.
-    final unassigned = Task(
-      id: 't8',
-      title: 'Schedule stakeholder demo',
-      assigneeId: '', // no assignee
-      dueDate: DateTime(2024, 6, 10), // today
-      status: TaskStatus.todo,
-      createdAt: now.subtract(const Duration(days: 1)),
-      updatedAt: now,
-    );
-
-    return _LoadDataResult(
-      tasks: [
-        overdueTask,
-        atRiskToday,
-        atRiskTomorrow,
-        onTrack,
-        completed,
-        completed2,
-        onTrackFar,
-        unassigned,
-      ],
-      members: members,
-    );
   }
 
   // ------------------------------------------------------------------
@@ -407,14 +288,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
 // ------------------------------------------------------------------
 // Private widgets
 // ------------------------------------------------------------------
-
-/// Data container for [_loadData]. A simple class keeps the return type
-/// clear without relying on tuple destructuring.
-class _LoadDataResult {
-  final List<Task> tasks;
-  final List<TeamMember> members;
-  const _LoadDataResult({required this.tasks, required this.members});
-}
 
 class _FilterChip extends StatelessWidget {
   final String label;
