@@ -13,7 +13,7 @@ Built by Group 16 for ALU Formative Assignment 1.
 | Task List | Search by title or assignee, filter by SLA state or "My tasks", sorted so the most urgent tasks come first. |
 | Task Details | Every field of a task, an SLA card that explains why the task has its status, a status dropdown that saves straight away, plus Edit and Delete. |
 | Create / Edit Task | One form for both. Validates the title, description, assignee and due date before saving. |
-| Team | The team members, how many tasks each one has, and an **At Risk / Overdue** pill for work that needs attention. |
+| Team | The team members, how many tasks each one has, and an **At Risk / Overdue** pill for work that needs attention. New members can be added from here. |
 | Profile | The signed-in member, a summary of their own tasks, and Sign out. |
 
 ## SLA status
@@ -27,11 +27,11 @@ The SLA status is calculated from a task's due date and status each time it is s
 | At Risk | Not Done, and the deadline is within the next 48 hours. |
 | On Track | Everything else. |
 
+The rules live in one place, `lib/services/sla_service.dart`. The 48-hour window is a named constant there.
+
 ## Team workload
 
 The Team tab shows every member's total task count plus, in coloured pills, how many of their tasks are **At Risk** or **Overdue** — the same labels used by the SLA grid. Members with nothing flagged show **"All tasks on track"**, and members with no tasks show **"No tasks assigned"**. The counts come from the shared SLA rules and refresh when tasks change.
-
-The rules live in one place, `lib/services/sla_service.dart`. The 48-hour window is a named constant there.
 
 ## Validation rules
 
@@ -41,6 +41,11 @@ The Create / Edit Task form checks:
 - **Description:** optional, at most 300 characters.
 - **Assignee:** required.
 - **Due date:** required, and not in the past for a new task.
+
+The Add Team Member form checks:
+
+- **Name:** required, 2 to 40 characters, and not the same as an existing member.
+- **Role:** required, 2 to 40 characters.
 
 Sign In shows an error if you continue without choosing a team member.
 
@@ -77,6 +82,7 @@ lib/
     task.dart                   Task, TaskPriority, TaskStatus
     team_member.dart            TeamMember
     sla_status.dart             The four SLA states
+    workload_summary.dart       A member's task counts by SLA state
   services/
     storage_service.dart        Loads and saves tasks and members
     seed_data.dart              Sample data for the first launch
@@ -91,6 +97,7 @@ lib/
     task_details_screen.dart
     create_edit_task_screen.dart
     team_members_screen.dart
+    add_member_screen.dart
     profile_screen.dart
   widgets/
     member_avatar.dart          Avatar with a member's initials
