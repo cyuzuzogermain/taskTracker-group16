@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:task_tracker_app/models/sla_status.dart';
 import 'package:task_tracker_app/models/task.dart';
 import 'package:task_tracker_app/models/team_member.dart';
+import 'package:task_tracker_app/models/workload_summary.dart';
 import 'package:task_tracker_app/services/storage_service.dart';
 import 'package:task_tracker_app/theme/app_theme.dart';
+import 'package:task_tracker_app/theme/sla_colors.dart';
 
 class TeamMembersScreen extends StatefulWidget {
   const TeamMembersScreen({super.key});
@@ -39,13 +42,30 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
     });
   }
 
-  /// How many stored tasks are assigned to [member].
-  int _taskCountFor(TeamMember member) {
-    return tasks.where((task) => task.assigneeId == member.id).length;
+  /// Groups the tasks by assignee and summarises each member's load.
+  ///
+  /// [now] is passed straight to the SLA rules so every row is judged at the
+  /// same moment.
+  Map<String, WorkloadSummary> _workloadFor(DateTime now) {
+    final byMember = <String, List<Task>>{};
+    for (final task in tasks) {
+      byMember.putIfAbsent(task.assigneeId, () => <Task>[]).add(task);
+    }
+
+    return {
+      for (final member in members)
+        member.id: WorkloadSummary.of(
+          byMember[member.id] ?? const <Task>[],
+          now: now,
+        ),
+    };
   }
 
   @override
   Widget build(BuildContext context) {
+    // Work out the load once, so the SLA status is consistent across rows.
+    final workload = _workloadFor(DateTime.now());
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Team Members'),
@@ -66,6 +86,8 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
                   itemCount: members.length,
                   itemBuilder: (context, index) {
                     final member = members[index];
+                    final summary =
+                        workload[member.id] ?? WorkloadSummary.empty;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -79,8 +101,15 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        subtitle: Text(member.role),
-                        trailing: _WorkloadBadge(count: _taskCountFor(member)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(member.role),
+                            const SizedBox(height: AppSpacing.xxs),
+                            _WorkloadBreakdown(summary: summary),
+                          ],
+                        ),
+                        trailing: _WorkloadBadge(count: summary.total),
                       ),
                     );
                   },
@@ -89,7 +118,7 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
   }
 }
 
-/// Small badge showing how many tasks a team member is assigned.
+/// Small badge showing the total number of tasks a member is assigned.
 class _WorkloadBadge extends StatelessWidget {
   final int count;
 
@@ -112,6 +141,74 @@ class _WorkloadBadge extends StatelessWidget {
         label,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: AppColors.primary,
+            ),
+      ),
+    );
+  }
+}
+
+/// Shows how much of a member's load needs attention.
+///
+/// Lists the At Risk and Overdue counts as coloured pills, with a plain
+/// fallback when there is nothing to flag.
+class _WorkloadBreakdown extends StatelessWidget {
+  final WorkloadSummary summary;
+
+  const _WorkloadBreakdown({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (summary.total == 0) {
+      return Text('No tasks assigned', style: theme.textTheme.bodySmall);
+    }
+    if (summary.isClear) {
+      return Text('All tasks on track', style: theme.textTheme.bodySmall);
+    }
+
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xxs,
+      children: [
+        if (summary.atRisk > 0)
+          _SlaCountPill(status: SlaStatus.atRisk, count: summary.atRisk),
+        if (summary.overdue > 0)
+          _SlaCountPill(status: SlaStatus.overdue, count: summary.overdue),
+      ],
+    );
+  }
+}
+
+/// A coloured pill such as "1 At Risk" or "2 Overdue".
+///
+/// Colours and wording come from the shared SLA status so a state looks the
+/// same here as everywhere else in the app.
+class _SlaCountPill extends StatelessWidget {
+  final SlaStatus status;
+  final int count;
+
+  const _SlaCountPill({required this.status, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = SlaColors.of(status);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(AppRadius.control),
+        border: Border.all(color: colors.text.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        '$count ${status.label}',
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colors.text,
+              fontWeight: FontWeight.w600,
             ),
       ),
     );

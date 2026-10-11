@@ -129,7 +129,11 @@ class _MainShellState extends State<MainShell> {
         currentUserId: null, // TODO: pass the current user id when auth is ready.
         onTaskTap: (task) => _openTaskDetails(task),
       ),
-      const TeamMembersScreen(),
+      TeamMembersScreen(
+        // Keyed by _refreshToken so the workload reloads after Task Details
+        // or Create Task changes the tasks.
+        key: ValueKey('team-$_refreshToken'),
+      ),
       const PlaceholderScreen(title: 'Profile'),
     ];
 
