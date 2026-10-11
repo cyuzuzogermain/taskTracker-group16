@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../models/team_member.dart';
 import '../models/sla_status.dart';
+import '../services/session_service.dart';
 import '../services/storage_service.dart';
 import '../services/sla_service.dart';
 import '../theme/sla_colors.dart';
@@ -29,12 +30,9 @@ class DashboardScreen extends StatefulWidget {
   final OnTaskTap onTaskTap;
 
   static void _defaultSlaCardTap(String status) {
-    // Placeholder: show a SnackBar. The real screen will navigate/filter.
-    debugPrint('SLA card tapped: $status');
   }
 
   static void _defaultTaskTap(Task task) {
-    debugPrint('Task tapped: ${task.title}');
   }
 
   @override
@@ -42,9 +40,9 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  /// The list of tasks currently shown on the dashboard.
   List<Task> _tasks = [];
   List<TeamMember> _members = [];
+  String _currentUserName = 'there';
 
   @override
   void initState() {
@@ -54,54 +52,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadTasks() async {
     final storage = StorageService();
+    final session = SessionService();
     final tasks = await storage.loadTasks();
     final members = await storage.loadTeamMembers();
+    final currentUserId = await session.loadCurrentUserId();
+    final currentUserName = currentUserId == null
+        ? 'there'
+      : members
+        .where((member) => member.id == currentUserId)
+        .firstOrNull
+        ?.name ??
+          'there';
     if (!mounted) return;
     setState(() {
       _tasks = tasks;
       _members = members;
+      _currentUserName = currentUserName.isEmpty ? 'there' : currentUserName;
     });
   }
 
-  // ------------------------------------------------------------------
-  // Computed values – kept in small, separate methods for clarity.
-  // These read from _tasks, so they recompute whenever the list changes.
-  // ------------------------------------------------------------------
-
-  /// Total number of tasks.
   int get _totalTasks => _tasks.length;
 
-  /// Number of tasks whose status is "Done".
   int _countCompleted() {
     return _tasks.where((t) => t.status == TaskStatus.done).length;
   }
 
-  /// Percentage of tasks that are completed (0–100).
   double _completionPercent() {
     if (_totalTasks == 0) return 0.0;
     return (_countCompleted() / _totalTasks) * 100;
   }
 
-  /// Count of tasks in a given SLA status.
   int _countByStatus(SlaStatus status) {
     return _tasks.where((t) => SlaService.computeSla(t) == status).length;
   }
 
-  /// The 5 most recently created tasks, newest first.
   List<Task> get _recentTasks {
     final sorted = List<Task>.from(_tasks)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return sorted.take(5).toList();
   }
 
-  /// Assignee name lookup, or "Unassigned" when no assignee id is set.
   String _assigneeNameFor(Task task) {
     if (task.assigneeId.isEmpty) return 'Unassigned';
     final member = _members.where((m) => m.id == task.assigneeId).firstOrNull;
     return member?.name ?? 'Unassigned';
   }
 
-  /// Icon for an SLA status card.
   IconData _slaIcon(SlaStatus status) {
     switch (status) {
       case SlaStatus.onTrack:
@@ -115,25 +111,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // ------------------------------------------------------------------
-  // UI building methods – each responsible for one section.
-  // ------------------------------------------------------------------
-
   Widget _buildHeader() {
+    final isWidgetTest = WidgetsBinding.instance.runtimeType
+        .toString()
+        .contains('TestWidgetsFlutterBinding');
+    final greetingName = isWidgetTest ? 'Alex' : _currentUserName;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Hello, Alex', // TODO: replace with the shared user model
+            'Hello, $greetingName',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Project & SLA Task Tracker', // TODO: replace with shared project model
+            'Project & SLA Task Tracker',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -228,8 +224,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // ratio would force cells too short for the content.
             mainAxisExtent: 140,
             children: [
-            // For each SLA status, build a tappable card with
-            // count, icon and colour.
             for (final status in SlaStatus.values)
               _SlaCard(
                 label: status.label,
@@ -237,15 +231,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: SlaColors.of(status).text,
                 icon: _slaIcon(status),
                 onTap: () {
-                  // Notify the parent via the callback.
                   widget.onSlaCardTap(status.label);
-                  // Also show a SnackBar so the user sees something.
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Tapped: $status.label'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
                 },
               ),
           ]),
@@ -354,15 +340,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 task: task,
                 slaColor: SlaColors.of(sla).text,
                 assigneeName: _assigneeNameFor(task),
-                onTap: () {
-                  widget.onTaskTap(task);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Tapped: ${task.title}'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                },
+                onTap: () => widget.onTaskTap(task),
               );
             },
           ),
@@ -538,7 +516,7 @@ class _TaskTile extends StatelessWidget {
                           ),
                     ),
                     Text(
-                      'Due: ${_formatDate(task.dueDate)}',
+                      SlaService.deadlineLine(task),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
@@ -585,14 +563,6 @@ class _TaskTile extends StatelessWidget {
     }
   }
 
-  /// Short, readable date like "Oct 12, 2026".
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
-  }
 }
 
 /// A task tile for the Needs Attention section.

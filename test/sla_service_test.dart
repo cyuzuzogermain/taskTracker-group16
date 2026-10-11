@@ -233,6 +233,20 @@ void main() {
       );
       expect(SlaService.deadlineLine(task, now: testNow), '2 days overdue');
     });
+
+    test('returns overdue text for a task that is only minutes late', () {
+      final now = DateTime(2024, 6, 11, 0, 0, 1);
+      final task = Task(
+        id: 'dl7',
+        title: 'Just overdue',
+        assigneeId: 'a',
+        dueDate: DateTime(2024, 6, 10),
+        status: TaskStatus.todo,
+        createdAt: testNow,
+        updatedAt: testNow,
+      );
+      expect(SlaService.deadlineLine(task, now: now), '1 day overdue');
+    });
   });
 
   group('slaReason', () {
