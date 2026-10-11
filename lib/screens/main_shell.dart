@@ -167,7 +167,11 @@ class _MainShellState extends State<MainShell> {
         currentUserId: widget.currentUser.id,
         onTaskTap: (task) => _openTaskDetails(task),
       ),
-      const TeamMembersScreen(),
+      TeamMembersScreen(
+        // Keyed by _refreshToken so the workload reloads after Task Details
+        // or Create Task changes the tasks.
+        key: ValueKey('team-$_refreshToken'),
+      ),
       ProfileScreen(
         key: ValueKey('profile-$_refreshToken'),
         currentUser: widget.currentUser,

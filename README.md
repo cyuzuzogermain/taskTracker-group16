@@ -13,7 +13,7 @@ Built by Group 16 for ALU Formative Assignment 1.
 | Task List | Search by title or assignee, filter by SLA state or "My tasks", sorted so the most urgent tasks come first. |
 | Task Details | Every field of a task, an SLA card that explains why the task has its status, a status dropdown that saves straight away, plus Edit and Delete. |
 | Create / Edit Task | One form for both. Validates the title, description, assignee and due date before saving. |
-| Team | The team members and how many tasks each one has. |
+| Team | The team members, how many tasks each one has, and an **At Risk / Overdue** pill for work that needs attention. |
 | Profile | The signed-in member, a summary of their own tasks, and Sign out. |
 
 ## SLA status
@@ -26,6 +26,10 @@ The SLA status is calculated from a task's due date and status each time it is s
 | Overdue | Not Done, and the end of the due date (11:59 pm) has passed. |
 | At Risk | Not Done, and the deadline is within the next 48 hours. |
 | On Track | Everything else. |
+
+## Team workload
+
+The Team tab shows every member's total task count plus, in coloured pills, how many of their tasks are **At Risk** or **Overdue** — the same labels used by the SLA grid. Members with nothing flagged show **"All tasks on track"**, and members with no tasks show **"No tasks assigned"**. The counts come from the shared SLA rules and refresh when tasks change.
 
 The rules live in one place, `lib/services/sla_service.dart`. The 48-hour window is a named constant there.
 

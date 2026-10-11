@@ -152,19 +152,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Both texts are Flexible so the header never overflows the
+              // card on narrow phones (the title alone is wider than the
+              // card's inner width at 320 dp).
               children: [
-                Text(
-                  'Overall Progress',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                Flexible(
+                  child: Text(
+                    'Overall Progress',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
                 ),
-                Text(
-                  '$completed / $total tasks',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    '$completed / $total tasks',
+                    textAlign: TextAlign.end,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
                 ),
               ],
             ),
@@ -207,7 +219,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 1.1,
+            // A fixed cell height (instead of an aspect ratio) so the card's
+            // icon + count + label never overflow on narrow phones, where a
+            // ratio would force cells too short for the content.
+            mainAxisExtent: 140,
             children: [
             for (final status in SlaStatus.values)
               _SlaCard(
