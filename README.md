@@ -17,6 +17,10 @@ The SLA status is calculated from a task's due date and status each time it is s
 | At Risk | Not Done, and due within the next 48 hours. |
 | On Track | Everything else. |
 
+## Team workload
+
+The Team tab shows every member's total task count plus, in coloured pills, how many of their tasks are **At Risk** or **Overdue** — the same labels used by the SLA grid. Members with nothing flagged show **"All tasks on track"**, and members with no tasks show **"No tasks assigned"**. The counts come from the shared SLA rules and refresh when tasks change.
+
 ## Running the app
 
 You need Flutter installed with Dart 3.12.2 or newer, and an Android emulator or a connected Android phone.

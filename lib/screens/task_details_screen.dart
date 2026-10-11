@@ -155,18 +155,28 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
+          tooltip: 'Back',
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(_task.title),
+        title: Text(
+          _task.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           TextButton.icon(
+            // The app theme gives FilledButtons an infinite-width minimum,
+            // which the AppBar's actions measurement cannot handle, so these
+            // actions override it with a finite size.
+            style: TextButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: () => widget.onEdit(_task),
             icon: const Icon(Icons.edit_outlined),
             label: const Text('Edit'),
           ),
           const SizedBox(width: AppSpacing.sm),
           FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: _delete,
             icon: const Icon(Icons.delete_outline),
             label: const Text('Delete'),
@@ -243,11 +253,19 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
             Row(
               children: [
                 _buildSlAChip(task, theme),
-                const Spacer(),
-                Text(
-                  line,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                const SizedBox(width: AppSpacing.xs),
+                // Expanded (instead of a Spacer + bare Text) so a long
+                // deadline line wraps or ellipsizes instead of overflowing
+                // the card on narrow phones.
+                Expanded(
+                  child: Text(
+                    line,
+                    textAlign: TextAlign.end,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ],
