@@ -43,9 +43,6 @@ class _MainShellState extends State<MainShell> {
   /// so they reload their data after Task Details or Create Task closes.
   int _refreshToken = 0;
 
-  /// The team members, passed to Task Details to show the assignee's name.
-  List<TeamMember> _currentMembers = [];
-
   /// Switches tab. setState() tells Flutter the selected tab changed, so
   /// it rebuilds the body and highlights the new tab in the bar.
   void _selectTab(int index) {
@@ -100,7 +97,7 @@ class _MainShellState extends State<MainShell> {
     _refresh();
   }
 
-  /// Removes the tak with the given id from storage.
+  /// Removes the task with the given id from storage.
   Future<void> _deleteTask(String id) async {
     final storage = StorageService();
     final tasks = await storage.loadTasks();
@@ -113,15 +110,20 @@ class _MainShellState extends State<MainShell> {
   /// Opens Task Details for the given task.
   ///
   /// With [replaceCurrent] the screen on top is swapped for the new one
-  /// instead of stacking another scraen above it.
+  /// instead of stacking another screen above it.
   Future<void> _openTaskDetails(
     Task task, {
     bool replaceCurrent = false,
   }) async {
+    // Read the members each time, so a member added on the Team tab is
+    // known here and their name shows as the assignee.
+    final members = await StorageService().loadTeamMembers();
+    if (!mounted) return;
+
     final route = MaterialPageRoute<void>(
       builder: (context) => TaskDetailsScreen(
         task: task,
-        members: _currentMembers,
+        members: members,
         onSave: _saveTask,
         onDelete: _deleteTask,
         onEdit: _openEditTask,
@@ -136,20 +138,6 @@ class _MainShellState extends State<MainShell> {
 
     if (!mounted) return;
     _refresh();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadMembers();
-  }
-
-  Future<void> _loadMembers() async {
-    final members = await StorageService().loadTeamMembers();
-    if (!mounted) return;
-    setState(() {
-      _currentMembers = members;
-    });
   }
 
   @override
