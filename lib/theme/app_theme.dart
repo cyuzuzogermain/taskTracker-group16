@@ -108,7 +108,10 @@ class AppTheme {
     final controlShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(AppRadius.control),
     );
-    const buttonSize = Size.fromHeight(48);
+    // A minimum size only. A button is made full width by its parent, for
+    // example a Column with crossAxisAlignment.stretch. Forcing full width
+    // here would break buttons placed in a Row, an app bar or a dialog.
+    const buttonSize = Size(64, 48);
 
     return ThemeData(
       useMaterial3: true,
