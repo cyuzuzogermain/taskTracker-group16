@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/main_shell.dart';
+import 'screens/auth_gate.dart';
 import 'screens/placeholder_screen.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_routes.dart';
@@ -19,7 +19,7 @@ class TaskTrackerApp extends StatelessWidget {
       theme: AppTheme.light(),
       initialRoute: AppRoutes.home,
       routes: {
-        AppRoutes.home: (context) => const MainShell(),
+        AppRoutes.home: (context) => const AuthGate(),
         AppRoutes.createTask: (context) =>
             const PlaceholderScreen(title: 'New Task'),
       },
