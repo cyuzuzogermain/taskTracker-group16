@@ -2,10 +2,19 @@ import 'package:flutter/material.dart';
 
 import 'screens/main_shell.dart';
 import 'screens/placeholder_screen.dart';
+import 'services/seed_data.dart';
+import 'services/storage_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_routes.dart';
 
-void main() {
+Future<void> main() async {
+  // Storage uses a platform channel, so make sure the Flutter bindings are
+  // ready before touching it.
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Seed the sample data once, before the first screen reads from storage.
+  await SeedData.seed(StorageService());
+
   runApp(const TaskTrackerApp());
 }
 
