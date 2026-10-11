@@ -54,6 +54,12 @@ class SlaService {
       return 'Completed';
     }
 
+    if (effectiveNow.isAfter(deadline)) {
+      final lateDuration = effectiveNow.difference(deadline);
+      final daysLate = lateDuration.inDays == 0 ? 1 : lateDuration.inDays;
+      return '$daysLate day${daysLate == 1 ? '' : 's'} overdue';
+    }
+
     final today = DateTime(effectiveNow.year, effectiveNow.month, effectiveNow.day);
     final tomorrow = today.add(const Duration(days: 1));
     final dueDate = t.dueDate;
@@ -63,13 +69,6 @@ class SlaService {
     }
     if (dueDate.isAtSameMomentAs(tomorrow)) {
       return 'Due tomorrow';
-    }
-
-    final diff = effectiveNow.difference(deadline);
-    final daysLate = diff.inDays;
-
-    if (daysLate > 0) {
-      return '$daysLate day${daysLate == 1 ? '' : 's'} overdue';
     }
 
     // Due in the future

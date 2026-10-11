@@ -5,11 +5,9 @@ import '../models/task.dart';
 import '../models/team_member.dart';
 import '../services/storage_service.dart';
 import '../services/sla_service.dart';
+import '../theme/sla_colors.dart';
 
 /// A screen that lists tasks with search, SLA filter chips, and urgency sorting.
-///
-/// Data is loaded from a private [_loadData] method until Naomi's storage
-/// service is merged. Swap the body of that method when storage is ready.
 class TaskListScreen extends StatefulWidget {
   /// Optional initial SLA filter. When provided, the list opens pre-filtered.
   final SlaStatus? initialFilter;
@@ -28,11 +26,6 @@ class TaskListScreen extends StatefulWidget {
   });
 
   static void _defaultOnTaskTap(Task task) {
-    // Try to navigate to the Task Details route. If that route does not
-    // exist yet, fall back to a SnackBar so the tap is not lost.
-    // TODO: confirm the route name matches whatever navigation shell we use.
-    // TODO: if the app uses go_router or named routes, replace this block.
-    // <missing-route> Task Details named route not found; show SnackBar fallback.
   }
 
   @override
@@ -65,16 +58,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
     });
   }
 
-  // ------------------------------------------------------------------
-  // Filtering and sorting — kept together so the logic is easy to explain
-  // on camera. Both run on every setState, which is fine for a small list.
-  // ------------------------------------------------------------------
-
-  /// Tasks after search, filter chips, and "My tasks" are applied.
   List<Task> get _filtered {
     var list = List<Task>.from(_tasks);
 
-    // Search: match title or assignee name (empty query matches everything).
     if (_query.isNotEmpty) {
       final q = _query.toLowerCase();
       list = list.where((t) {
@@ -86,12 +72,10 @@ class _TaskListScreenState extends State<TaskListScreen> {
       }).toList();
     }
 
-    // SLA filter chip.
     if (_filter != null) {
       list = list.where((t) => SlaService.computeSla(t) == _filter).toList();
     }
 
-    // "My tasks" chip — only when a current user is set.
     if (_myTasksOnly && widget.currentUserId != null) {
       list =
           list.where((t) => t.assigneeId == widget.currentUserId).toList();
@@ -100,30 +84,21 @@ class _TaskListScreenState extends State<TaskListScreen> {
     return list;
   }
 
-  /// Tasks sorted by urgency: Overdue, At Risk, On Track, Completed.
-  /// Inside each group, nearest deadline first.
   List<Task> get _sorted {
     final list = List<Task>.from(_filtered);
     list.sort(_urgencyCompare);
     return list;
   }
 
-  /// Sort comparator using [SlaService.computeSla] and [SlaService.deadlineOf].
-  ///
-  /// Lower return value = appears first.
-  /// Order: Overdue (0), At Risk (1), On Track (2), Completed (3).
-  /// Within a group, earlier deadline first.
   int _urgencyCompare(Task a, Task b) {
     final slaA = SlaService.computeSla(a);
     final slaB = SlaService.computeSla(b);
     final orderA = _slaOrder(slaA);
     final orderB = _slaOrder(slaB);
     if (orderA != orderB) return orderA.compareTo(orderB);
-    // Same SLA bucket → nearest deadline first.
     return SlaService.deadlineOf(a).compareTo(SlaService.deadlineOf(b));
   }
 
-  /// Ordinal for urgency sort. Lower = more urgent.
   int _slaOrder(SlaStatus status) {
     switch (status) {
       case SlaStatus.overdue:
@@ -137,7 +112,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
     }
   }
 
-  /// Assignee name lookup, or null when no assignee id is set.
   TeamMember? _assigneeFor(Task task) {
     if (task.assigneeId.isEmpty) return null;
     return _members.where((m) => m.id == task.assigneeId).firstOrNull;
@@ -210,7 +184,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
             theme: theme,
           ),
           const SizedBox(width: 8),
-          // SLA chips use the labels from SlaStatus.xxx.label.
           for (final status in [
             SlaStatus.onTrack,
             SlaStatus.atRisk,
@@ -235,8 +208,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
               onSelected: (_) {
                 setState(() {
                   _myTasksOnly = !_myTasksOnly;
-                  // When "My tasks" is turned on, drop the SLA filter so
-                  // the user sees all their tasks across statuses.
                   if (_myTasksOnly) _filter = null;
                 });
               },
@@ -338,15 +309,7 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Prefer the shared task card widget if the team adds one later.
-    // TODO: replace with shared widget when lib/widgets/task_card.dart exists.
-    // <missing-widget> Shared task card widget not found; using inline Card.
-
-    // SLA colour from theme. The shared theme/sla_colors do not exist yet,
-    // so derive from the colour scheme instead of hardcoding.
-    // TODO: replace with shared sla_colors from theme when available.
-    // <missing-theme> Shared SLA colours not found; using colorScheme.
-    final slaColor = _slaColorFromTheme(sla, theme);
+    final colors = SlaColors.of(sla);
 
     return Card(
       child: InkWell(
@@ -355,9 +318,8 @@ class _TaskCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            // 4px left edge in the SLA colour.
             border: Border(
-              left: BorderSide(color: slaColor, width: 4),
+              left: BorderSide(color: colors.text, width: 4),
             ),
           ),
           padding: const EdgeInsets.all(12),
@@ -415,14 +377,14 @@ class _TaskCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: slaColor.withValues(alpha: 0.15),
+                  color: colors.background,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: slaColor.withValues(alpha: 0.4)),
+                  border: Border.all(color: colors.text),
                 ),
                 child: Text(
                   sla.label,
                   style: TextStyle(
-                    color: slaColor,
+                    color: colors.text,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -435,19 +397,4 @@ class _TaskCard extends StatelessWidget {
     );
   }
 
-  /// Derive an SLA colour from the theme's colorScheme so nothing is
-  /// hardcoded. Once the shared theme is in place, point this at
-  /// theme.slaColors[s la] instead.
-  Color _slaColorFromTheme(SlaStatus sla, ThemeData theme) {
-    switch (sla) {
-      case SlaStatus.completed:
-        return theme.colorScheme.primary;
-      case SlaStatus.onTrack:
-        return Colors.green;
-      case SlaStatus.atRisk:
-        return Colors.orange;
-      case SlaStatus.overdue:
-        return Colors.red;
-    }
-  }
 }

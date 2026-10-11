@@ -7,10 +7,6 @@ import '../services/sla_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/sla_colors.dart';
 
-/// Shorthand for the app's spacing constants.
-
-/// Shortcuts to the app's spacing and radius so the screen stays readable.
-/// These come from the top-level classes in app_theme.dart.
 class _Spacing {
   static double get md => AppSpacing.md;
 }
@@ -122,10 +118,6 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     }
   }
 
-  /// Small chip showing the SLA status.
-  ///
-  /// TODO: replace with shared widget when lib/widgets/sla_chip.dart exists.
-  /// TODO: missing-widget: Shared SLA chip widget not found; using inline chip.
   Widget _buildSlAChip(Task task, ThemeData theme) {
     final sla = _slaFor(task);
     final colors = _slaColorsFor(task);
@@ -179,11 +171,9 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // SLA card at the top so the user sees status immediately.
             _buildSlACard(_task, theme, colors),
             const SizedBox(height: AppSpacing.md),
 
-            // Core fields.
             _buildSection(
               theme,
               'Details',
@@ -194,18 +184,16 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
                   Text(_task.title),
                 ),
                 _buildAssigneeField(theme, assignee),
-                _buildDueDateField(theme),
+                _buildDeadlineField(theme),
                 _buildPriorityField(theme),
                 _buildStatusField(theme),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // Notes.
             _buildNotesSection(theme),
             const SizedBox(height: AppSpacing.md),
 
-            // Timestamps.
             _buildSection(
               theme,
               'Timeline',
@@ -332,12 +320,12 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
     );
   }
 
-  Widget _buildDueDateField(ThemeData theme) {
+  Widget _buildDeadlineField(ThemeData theme) {
     return _buildField(
       theme,
-      'Due date',
+      'Deadline',
       Text(
-        _formatDate(_task.dueDate),
+        SlaService.deadlineLine(_task),
         style: theme.textTheme.bodyLarge,
       ),
     );
@@ -381,8 +369,7 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
   }
 
   Widget _buildNotesSection(ThemeData theme) {
-    final text =
-        _task.notes.isEmpty ? 'No notes' : _task.notes;
+    final text = _task.notes.isEmpty ? 'No notes' : _task.notes;
     return _buildField(
       theme,
       'Notes',
@@ -393,14 +380,6 @@ class _TaskDetailsScreenState extends State<TaskDetailsScreen> {
         softWrap: true,
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   String _formatDateTime(DateTime date) {
