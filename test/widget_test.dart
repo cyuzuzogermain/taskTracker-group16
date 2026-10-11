@@ -14,6 +14,11 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await SeedData.seed(StorageService(), now: DateTime(2026, 1, 1, 10));
 
+    // Sign in as a seeded member, so the app opens on the tabs instead of
+    // the Sign In screen.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('current_user_id', '4');
+
     // Build our app and let the screens finish loading their data.
     await tester.pumpWidget(const TaskTrackerApp());
     await tester.pumpAndSettle();
