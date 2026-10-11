@@ -3,6 +3,7 @@ import 'package:task_tracker_app/models/sla_status.dart';
 import 'package:task_tracker_app/models/task.dart';
 import 'package:task_tracker_app/models/team_member.dart';
 import 'package:task_tracker_app/models/workload_summary.dart';
+import 'package:task_tracker_app/screens/add_member_screen.dart';
 import 'package:task_tracker_app/services/storage_service.dart';
 import 'package:task_tracker_app/theme/app_theme.dart';
 import 'package:task_tracker_app/theme/sla_colors.dart';
@@ -42,6 +43,18 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
     });
   }
 
+  /// Opens the Add Team Member form, then reloads the list if one was added.
+  Future<void> _openAddMember() async {
+    final newMember = await Navigator.push<TeamMember>(
+      context,
+      MaterialPageRoute(builder: (context) => const AddMemberScreen()),
+    );
+
+    // Null means the form was closed without saving.
+    if (newMember == null) return;
+    await loadMembers();
+  }
+
   /// Groups the tasks by assignee and summarises each member's load.
   ///
   /// [now] is passed straight to the SLA rules so every row is judged at the
@@ -70,6 +83,14 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
       appBar: AppBar(
         title: const Text('Team Members'),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        // A unique tag, because the Tasks tab's button is in the same
+        // screen tree and two buttons cannot share the default tag.
+        heroTag: 'addTeamMember',
+        onPressed: _openAddMember,
+        icon: const Icon(Icons.person_add_outlined),
+        label: const Text('Add member'),
+      ),
       body: isLoading
           ? const Center(
               child: CircularProgressIndicator(),
@@ -82,7 +103,14 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.all(AppSpacing.md),
+                  // Extra space at the bottom so the Add member button
+                  // never covers the last card.
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    88,
+                  ),
                   itemCount: members.length,
                   itemBuilder: (context, index) {
                     final member = members[index];
