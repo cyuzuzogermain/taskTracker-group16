@@ -4,6 +4,7 @@ import '../models/task.dart';
 import '../models/team_member.dart';
 import '../services/storage_service.dart';
 
+import 'create_edit_task_screen.dart';
 import 'dashboard_screen.dart';
 import 'task_list_screen.dart';
 import 'profile_screen.dart';
@@ -42,7 +43,7 @@ class _MainShellState extends State<MainShell> {
   /// so they reload their data after Task Details or Create Task closes.
   int _refreshToken = 0;
 
-  List<Task> _currentTasks = [];
+  /// The team members, passed to Task Details to show the assignee's name.
   List<TeamMember> _currentMembers = [];
 
   /// Switches tab. setState() tells Flutter the selected tab changed, so
@@ -58,68 +59,95 @@ class _MainShellState extends State<MainShell> {
     setState(() => _refreshToken++);
   }
 
-  /// Opens the Create Task screen on top of the tabs.
-  void _openCreateTask() async {
+  /// Opens the Create Task form on top of the tabs.
+  Future<void> _openCreateTask() async {
     await Navigator.pushNamed(context, AppRoutes.createTask);
-    // After returning, both the Dashboard and Task List reload data.
+    if (!mounted) return;
+    // The form saves the task itself, so the tabs only need to reload.
+    _refresh();
+  }
+
+  /// Opens the form to edit [task]. Called from the Task Details screen.
+  Future<void> _openEditTask(Task task) async {
+    final updatedTask = await Navigator.push<Task>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateEditTaskScreen(task: task),
+      ),
+    );
+
+    // Null means the form was closed without saving.
+    if (updatedTask == null || !mounted) return;
+
+    // Task Details keeps its own copy of the task, so replace that screen
+    // with a fresh one showing the saved values.
+    _openTaskDetails(updatedTask, replaceCurrent: true);
+  }
+
+  /// Saves a change made on Task Details, such as a new status.
+  ///
+  /// The list is read from storage first so tasks created or edited
+  /// elsewhere are neverr overwritten by an old copy.
+  Future<void> _saveTask(Task updatedTask) async {
+    final storage = StorageService();
+    final tasks = await storage.loadTasks();
+    final index = tasks.indexWhere((t) => t.id == updatedTask.id);
+    if (index >= 0) {
+      tasks[index] = updatedTask;
+    }
+    await storage.saveTasks(tasks);
+    if (!mounted) return;
+    _refresh();
+  }
+
+  /// Removes the tak with the given id from storage.
+  Future<void> _deleteTask(String id) async {
+    final storage = StorageService();
+    final tasks = await storage.loadTasks();
+    tasks.removeWhere((t) => t.id == id);
+    await storage.saveTasks(tasks);
+    if (!mounted) return;
     _refresh();
   }
 
   /// Opens Task Details for the given task.
   ///
-  /// If [TaskDetailsScreen] exists it is shown directly; otherwise the
-  /// placeholder is used and the caller is expected to wire it up later.
-  Future<void> _openTaskDetails(Task task) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => TaskDetailsScreen(
-          task: task,
-          members: _currentMembers,
-          onSave: (updatedTask) async {
-            // Update the task in our local list.
-            final idx = _currentTasks.indexWhere((t) => t.id == updatedTask.id);
-            if (idx >= 0) {
-              _currentTasks = List<Task>.from(_currentTasks)..[idx] = updatedTask;
-            }
-            await StorageService().saveTasks(_currentTasks);
-            _refresh();
-          },
-          onDelete: (id) async {
-            final updated = _currentTasks.where((t) => t.id != id).toList();
-            _currentTasks = updated;
-            await StorageService().saveTasks(updated);
-            _refresh();
-          },
-          onEdit: (task) {
-            // TODO: navigate to the Create/Edit task route if it exists.
-            // <missing-route> Create/Edit task route not wired yet; placeholder.
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Edit task: ${task.title}'),
-                duration: const Duration(seconds: 1),
-              ),
-            );
-          },
-        ),
+  /// With [replaceCurrent] the screen on top is swapped for the new one
+  /// instead of stacking another scraen above it.
+  Future<void> _openTaskDetails(
+    Task task, {
+    bool replaceCurrent = false,
+  }) async {
+    final route = MaterialPageRoute<void>(
+      builder: (context) => TaskDetailsScreen(
+        task: task,
+        members: _currentMembers,
+        onSave: _saveTask,
+        onDelete: _deleteTask,
+        onEdit: _openEditTask,
       ),
     );
+
+    if (replaceCurrent) {
+      await Navigator.pushReplacement(context, route);
+    } else {
+      await Navigator.push(context, route);
+    }
+
+    if (!mounted) return;
     _refresh();
   }
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadMembers();
   }
 
-  Future<void> _loadData() async {
-    final storage = StorageService();
-    final tasks = await storage.loadTasks();
-    final members = await storage.loadTeamMembers();
+  Future<void> _loadMembers() async {
+    final members = await StorageService().loadTeamMembers();
     if (!mounted) return;
     setState(() {
-      _currentTasks = tasks;
       _currentMembers = members;
     });
   }

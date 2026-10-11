@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:task_tracker_app/main.dart';
 import 'package:task_tracker_app/models/task.dart';
+import 'package:task_tracker_app/screens/create_edit_task_screen.dart';
 import 'package:task_tracker_app/screens/team_members_screen.dart';
 import 'package:task_tracker_app/screens/task_details_screen.dart';
 import 'package:task_tracker_app/screens/task_list_screen.dart';
@@ -55,7 +56,7 @@ void main() {
       findsNWidgets(2),
     );
 
-    // --- 5. Tasks tab: New Task is still a placeholder. ------------------
+    // --- 5. Tasks tab: the New Task form is wired in. ---------------------
     await tester.tap(find.text('Tasks'));
     await tester.pumpAndSettle();
 
@@ -67,8 +68,9 @@ void main() {
 
     await tester.tap(find.text('New Task'));
     await tester.pumpAndSettle();
-    // The create flow is not built yet, so the app lands on the placeholder.
-    expect(find.text('This screen is coming soon.'), findsOneWidget);
+    // The real Create / Edit form opens (was a placeholder before merge).
+    expect(find.byType(CreateEditTaskScreen), findsOneWidget);
+    expect(find.text('Create task'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
 
@@ -127,6 +129,92 @@ void main() {
 
     // Back on the Sign In screen with the session cleared.
     expect(find.text('Choose who you are to continue.'), findsOneWidget);
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'create task: form validates, saves, and updates list and workload',
+      (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await SeedData.seed(StorageService());
+
+    await tester.pumpWidget(const TaskTrackerApp());
+    await tester.pumpAndSettle();
+
+    // Sign in as Naomi and open the Tasks tab.
+    await tester.tap(find.text('Naomi'));
+    await tester.pump();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tasks'));
+    await tester.pumpAndSettle();
+
+    // --- Open the New Task form. ----------------------------------------
+    await tester.tap(find.text('New Task'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CreateEditTaskScreen), findsOneWidget);
+
+    // --- Save with an empty title shows the first validation error. -----
+    await tester.ensureVisible(find.text('Create task'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create task'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a title'), findsOneWidget);
+
+    // --- Fill the form properly. ----------------------------------------
+    await tester.ensureVisible(find.widgetWithText(TextFormField, 'Title'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Title'),
+      'QA created task',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byType(DropdownButtonFormField<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Naomi (Mobile Developer)').last);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byIcon(Icons.calendar_today_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.calendar_today_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    // --- Save and confirm. ----------------------------------------------
+    await tester.ensureVisible(find.text('Create task'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create task'));
+    await tester.pumpAndSettle();
+    expect(find.text('Task created'), findsOneWidget);
+
+    // Let the confirmation SnackBar dismiss, then open the Home tab. The
+    // dashboard reloaded when the form closed and lists the newest task
+    // first in Recent Tasks.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    expect(find.text('QA created task'), findsWidgets);
+
+    // --- Team workload reflects the new (At Risk) task. -----------------
+    // Naomi's task is due today, so it is At Risk: the At Risk pills go
+    // from two (Cyuzuzo, Moses) to three.
+    await tester.tap(find.text('Team'));
+    await tester.pumpAndSettle();
+    final team = find.byType(TeamMembersScreen);
+    expect(
+      find.descendant(of: team, matching: find.text('1 At Risk')),
+      findsNWidgets(3),
+    );
+    expect(
+      find.descendant(of: team, matching: find.text('1 Overdue')),
+      findsNWidgets(2),
+    );
 
     expect(tester.takeException(), isNull);
   });
